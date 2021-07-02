@@ -120,9 +120,6 @@ Finally, if instead of receiving the transformed value and errors, `.assert()`
 will throw an error if validation fails:
 
 ``` js
-schema().assert() throws if invalid, doesn't otherwise", async (t) => {
-
-```
 const { schema, is } = require("schema-fns");
 
 const MySchema = schema(
@@ -132,8 +129,6 @@ const MySchema = schema(
 MySchema.assert(42); // throws
 MySchema.assert("hi"); // throws
 MySchema.assert({}); // doesn't throw
-```
-
 ```
 
 ### `hasKeys(...keyNames)`
