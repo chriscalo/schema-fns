@@ -1,12 +1,4 @@
-// TODO:
-// - make sync: .validate(), .test(), .assert()
-// - create async versions: .validateAsync(), .testAsync(), and .assertAsync()
-
 const is = require("is");
-const R = require("ramda");
-const urlParseLax = require("url-parse-lax");
-const { parseDomain } = require("parse-domain");
-
 
 function schema(...fns) {
   // ensure all args are functions

@@ -5134,13 +5134,6 @@ fsevents@~2.3.2:
   languageName: node
   linkType: hard
 
-"node-fetch@npm:^2.6.0":
-  version: 2.6.1
-  resolution: "node-fetch@npm:2.6.1"
-  checksum: cbb171635e538162b977eac5dfe7a1e07a9a02e991924377a6435502291e2f823d306b95aabc455caebf4a118ccf836868462bc70ccc3095af02bb9da61fda37
-  languageName: node
-  linkType: hard
-
 "node-gyp@npm:latest":
   version: 8.1.0
   resolution: "node-gyp@npm:8.1.0"
@@ -5589,19 +5582,6 @@ fsevents@~2.3.2:
   languageName: node
   linkType: hard
 
-"parse-domain@npm:^3.0.3":
-  version: 3.0.3
-  resolution: "parse-domain@npm:3.0.3"
-  dependencies:
-    is-ip: ^3.1.0
-    node-fetch: ^2.6.0
-    punycode: ^2.1.1
-  bin:
-    parse-domain-update: bin/update.js
-  checksum: 2f526f96b7eec8d8c66d2e0fb76dd6014c2d5a6d7a7f630852beb3be3049a91a82b6bd867137599013f055b65c6fe1d313f3da82b1ae460679e6b7d102f7abc5
-  languageName: node
-  linkType: hard
-
 "parse-json@npm:^2.1.0":
   version: 2.2.0
   resolution: "parse-json@npm:2.2.0"
@@ -5834,13 +5814,6 @@ fsevents@~2.3.2:
   languageName: node
   linkType: hard
 
-"prepend-http@npm:^3.0.1":
-  version: 3.0.1
-  resolution: "prepend-http@npm:3.0.1"
-  checksum: 463e7ea31ed7cc6eb2a533779cbf06e72ea6d3443b39a1c82a9202d1ea9ec247450513eaa9c166deb7a70770bcad9a4e79e2200811d34864b7296965f4df99f8
-  languageName: node
-  linkType: hard
-
 "pretty-bytes@npm:^5.1.0":
   version: 5.6.0
   resolution: "pretty-bytes@npm:5.6.0"
@@ -6013,13 +5986,6 @@ fsevents@~2.3.2:
   languageName: node
   linkType: hard
 
-"punycode@npm:^2.1.1":
-  version: 2.1.1
-  resolution: "punycode@npm:2.1.1"
-  checksum: 0202dc191cb35bfd88870ac99a1e824b03486d4cee20b543ef337a6dee8d8b11017da32a3e4c40b69b19976e982c030b62bd72bba42884acb691bc5ef91354c8
-  languageName: node
-  linkType: hard
-
 "pupa@npm:^2.1.1":
   version: 2.1.1
   resolution: "pupa@npm:2.1.1"
@@ -6056,13 +6022,6 @@ fsevents@~2.3.2:
   version: 5.1.1
   resolution: "quick-lru@npm:5.1.1"
   checksum: fafb2b2fa1a948d6f2e88d4a60571be70b316d9b0be857d24fba0ac28fc31acebf535b643fe968473d689f8c655bcb2a0e4da67912f571059a4e4eb15740b021
-  languageName: node
-  linkType: hard
-
-"ramda@npm:^0.27.1":
-  version: 0.27.1
-  resolution: "ramda@npm:0.27.1"
-  checksum: 9aa4655dffdca66f8ba2ceabebe51996d6c75f6a2fb901a150885ace22c5950c211dd589868780b7a91c1443771702634d4370e7572d8c63c60e4b4f61aa57a9
   languageName: node
   linkType: hard
 
@@ -6464,9 +6423,6 @@ resolve@^1.10.0:
     ava: ^3.15.0
     is: ^3.3.0
     markserv: ^1.17.4
-    parse-domain: ^3.0.3
-    ramda: ^0.27.1
-    url-parse-lax: ^4.0.0
   languageName: unknown
   linkType: soft
 
@@ -7924,15 +7880,6 @@ resolve@^1.10.0:
   dependencies:
     prepend-http: ^2.0.0
   checksum: 334817036b300c35023798b8ceac23ea61b51f231a867112e3a85778d65191a3ccb67e7b69b608d45433d55da392cf0d72cd3c85f2542f6ec34733e455c229d5
-  languageName: node
-  linkType: hard
-
-"url-parse-lax@npm:^4.0.0":
-  version: 4.0.0
-  resolution: "url-parse-lax@npm:4.0.0"
-  dependencies:
-    prepend-http: ^3.0.1
-  checksum: 14f2c825e9b3dd400984be217008a857a2b0e66237b2be39a70c490936ef2124594d21ea7548225291cb2d2a9e0a1dc2f71beeb5b94a4063570001a08336c6ff
   languageName: node
   linkType: hard
 
