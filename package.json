@@ -27,6 +27,8 @@
     "markserv": "^1.17.4"
   },
   "dependencies": {
-    "is": "^3.3.0"
+    "is": "^3.3.0",
+    "parse-domain": "^3.0.3",
+    "url-parse-lax": "^4.0.0"
   }
 }

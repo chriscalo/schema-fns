@@ -1,4 +1,6 @@
 const is = require("is");
+const urlParseLax = require("url-parse-lax");
+const { parseDomain } = require("parse-domain");
 
 function schema(...fns) {
   // ensure all args are functions
@@ -274,6 +276,7 @@ function as(type) {
   };
 }
 
+// FIXME: add tests
 function isOneOf(...values) {
   return function (value, update, error) {
     if (!values.includes(value)) {
@@ -285,6 +288,7 @@ function isOneOf(...values) {
   };
 }
 
+// FIXME: add tests
 function isUrl() {
   return function (value, update, error) {
     if (value && value.length) {
@@ -305,6 +309,7 @@ function isUrl() {
   };
 }
 
+// FIXME: add tests
 function length(min = 0, max = Infinity) {
   return function (value, update, error) {
     if (value.length < min) {
@@ -324,6 +329,7 @@ function length(min = 0, max = Infinity) {
   };
 }
 
+// FIXME: add tests
 function required() {
   return function (value, update, error) {
     if (!Boolean(value)) {
