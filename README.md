@@ -172,7 +172,7 @@ The `key()` function is used to focus in on one key of an object and apply
 schema functions to it. The first argument is the key name and the remaining
 arguments are schema functions.
 
-```
+``` js
 const { schema, key, mapAdapter } = require("schema-fns");
 
 const MySchema = schema(
@@ -192,7 +192,7 @@ console.log(errors); //=> []
 
 It can also be used for validation:
 
-```
+``` js
 const { schema, is, key } = require("schema-fns");
 
 const MySchema = schema(
@@ -218,7 +218,7 @@ The `errors` array will look like:
 
 Of course, `key()` is recursive:
 
-```
+``` js
 const { schema, is, key } = require("schema-fns");
 
 const MySchema = schema(
@@ -241,7 +241,7 @@ console.log(value); //=> { name: { first: 42 } }
 
 The `errors` array will look like:
 
-```
+``` js
 [{
   code: "is.type",
   path: ["name", "first"],
@@ -257,7 +257,7 @@ The `items()` function is used to transform and validate all items in an array.
 Here's a transformation example that doubles numbers in an array and then
 repeats the digits:
 
-```
+``` js
 const { schema, items, mapAdapter } = require("schema-fns");
 
 const MySchema = schema(
@@ -276,7 +276,7 @@ console.log(value); //=> [ 22, 44, 66 ]);
 
 It can be used for validation as well:
 
-```
+``` js
 const { schema, is, items } = require("schema-fns");
 
 const MySchema = schema(
