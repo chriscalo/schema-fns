@@ -18,8 +18,8 @@ function schema(...fns) {
       throw error;
     }
   }
-  async function handler(value, update, error) {
-    const { value: output, errors } = await validate(value);
+  function handler(value, update, error) {
+    const { value: output, errors } = validate(value);
     for (const e of errors) {
       const { code, ...context } = e;
       error(code, context);
@@ -30,32 +30,60 @@ function schema(...fns) {
   handler.validate = validate;
   handler.test = test;
   handler.assert = assert;
+  handler.validateAsync = validateAsync;
+  handler.testAsync = testAsync;
+  handler.assertAsync = assertAsync;
   
-  async function validate(input) {
-    return await validationPipeline(...fns)(input);
+  function validate(input) {
+    return validationPipeline(...fns)(input);
   }
   
-  async function test(input) {
-    const { valid } = await validate(input);
+  async function validateAsync(input) {
+    return await validationPipelineAsync(...fns)(input);
+  }
+  
+  function test(input) {
+    const { valid } = validate(input);
     return valid;
   }
   
-  async function assert(input) {
-    const { valid, value, errors } = await validate(input);
+  async function testAsync(input) {
+    const { valid } = await validateAsync(input);
+    return valid;
+  }
+  
+  function assert(input) {
+    const { valid, value, errors } = validate(input);
     if (!valid) {
-      const message = [
-        `Schema validation failed: ${errors.length} errors found`,
-        ...errors.map(formatError),
-      ].join("\n");
-      const error = new ValidationError(message);
-      error.details = [...errors];
-      throw error;
+      throw createValidationError(errors);
     } else {
       return {
         valid,
         value,
       };
     }
+  }
+  
+  async function assertAsync(input) {
+    const { valid, value, errors } = await validateAsync(input);
+    if (!valid) {
+      throw createValidationError(errors);
+    } else {
+      return {
+        valid,
+        value,
+      };
+    }
+  }
+  
+  function createValidationError(errors) {
+    const message = [
+      `Schema validation failed: ${errors.length} errors found`,
+      ...errors.map(formatError),
+    ].join("\n");
+    const error = new ValidationError(message);
+    error.details = [...errors];
+    return error;
   }
   
   return handler;
@@ -71,9 +99,9 @@ function formatError(error) {
 function key(name, ...fns) {
   const keySchema = schema(...fns);
   
-  return async function (value, update, error) {
+  return function (value, update, error) {
     const input = value[name];
-    await keySchema(input, keyUpdate, keyError);
+    keySchema(input, keyUpdate, keyError);
     
     function keyUpdate(newKeyValue) {
       const newValue = {
@@ -97,13 +125,13 @@ function key(name, ...fns) {
 function items(...fns) {
   const itemSchema = schema(...fns);
   
-  return async function (value, update, error) {
+  return function (value, update, error) {
     let items = value;
     let index = 0;
     
     while (index < items.length) {
       const item = items[index];
-      await itemSchema(item, itemUpdate, itemError);
+      itemSchema(item, itemUpdate, itemError);
       index++;
       
       function itemUpdate(newItemValue) {
@@ -139,7 +167,34 @@ function hasKeys(...keys) {
 }
 
 function validationPipeline(...functions) {
-  return async function execValidationPipeline(input, update, error) {
+  return function execValidationPipeline(input, update, error) {
+    const errors = [];
+    let value = input;
+    
+    for (const fn of functions) {
+      fn(value, update, error);
+    }
+    
+    const valid = !Boolean(errors.length);
+    return { value, valid, errors };
+    
+    function update(newValue) {
+      value = newValue;
+    }
+    
+    function error(code, context) {
+      const e = {
+        code,
+        path: [],
+        ...context,
+      };
+      errors.push(e);
+    }
+  }
+}
+
+function validationPipelineAsync(...functions) {
+  return async function execValidationPipelineAsync(input, update, error) {
     const errors = [];
     let value = input;
     
@@ -166,8 +221,8 @@ function validationPipeline(...functions) {
 }
 
 function mapAdapter(mapFn) {
-  return async function (value, update) {
-    const returnValue = await mapFn(value);
+  return function (value, update) {
+    const returnValue = mapFn(value);
     if (typeof returnValue !== "undefined") {
       update(returnValue);
     }

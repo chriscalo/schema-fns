@@ -5,18 +5,23 @@ test("schema() returns a function", (t) => {
   t.is(typeof schema(), "function");
 });
 
-test("schema().validate is a function", (t) => {
+test("schema() has sync & async validate, test, and assert functions", (t) => {
   const { schema } = require("./schema.js");
   t.is(typeof schema().validate, "function");
+  t.is(typeof schema().test, "function");
+  t.is(typeof schema().assert, "function");
+  t.is(typeof schema().validateAsync, "function");
+  t.is(typeof schema().testAsync, "function");
+  t.is(typeof schema().assertAsync, "function");
 });
 
-test("transform functions modify the value", async (t) => {
+test("transform functions modify the value", (t) => {
   const { schema, mapAdapter } = require("./schema.js");
-  const mySchema = schema(
+  const MySchema = schema(
     mapAdapter(value => String(value)),
     mapAdapter(value => value + "1"),
   );
-  const { valid, value, errors } = await mySchema.validate(42);
+  const { valid, value, errors } = MySchema.validate(42);
   t.is(valid, true);
   t.is(value, "421");
   // FIXME: should error be null if empty? 🤔
@@ -28,12 +33,12 @@ test("transform functions modify the value", async (t) => {
 // TODO: test that errors are of type ValidationError
 // OR: a single ValidationError is created with an array of the problems found
 
-test("schema().validate() collects and returns errors", async (t) => {
+test("schema().validate() collects and returns errors", (t) => {
   const { schema, is } = require("./schema.js");
-  const mySchema = schema(
+  const MySchema = schema(
     is(Object),
   );
-  const { valid, value, errors } = await mySchema.validate(42);
+  const { valid, value, errors } = MySchema.validate(42);
   t.is(valid, false);
   t.is(value, 42);
   t.deepEqual(errors, [{
@@ -45,12 +50,12 @@ test("schema().validate() collects and returns errors", async (t) => {
   }]);
 });
 
-test("hasKeys() returns errors when keys are missing", async (t) => {
+test("hasKeys() returns errors when keys are missing", (t) => {
   const { schema, hasKeys } = require("./schema.js");
-  const mySchema = schema(
+  const MySchema = schema(
     hasKeys("foo", "bar"),
   );
-  const { valid, value, errors } = await mySchema.validate({});
+  const { valid, value, errors } = MySchema.validate({});
   t.is(valid, false);
   t.deepEqual(value, {});
   t.deepEqual(errors, [{
@@ -68,16 +73,16 @@ test("hasKeys() returns errors when keys are missing", async (t) => {
   }]);
 });
 
-test("key() transforms value", async (t) => {
+test("key() transforms value", (t) => {
   const { schema, key, mapAdapter } = require("./schema.js");
-  const mySchema = schema(
+  const MySchema = schema(
     key(
       "name",
       mapAdapter(value => `Hello, ${value}!`),
       mapAdapter(value => String(value).toUpperCase()),
     ),
   );
-  const { valid, value, errors } = await mySchema.validate({
+  const { valid, value, errors } = MySchema.validate({
     name: "World",
   });
   t.is(valid, true);
@@ -87,12 +92,12 @@ test("key() transforms value", async (t) => {
   t.deepEqual(errors, []);
 });
 
-test("key() collects errors", async (t) => {
+test("key() collects errors", (t) => {
   const { schema, is, key } = require("./schema.js");
-  const mySchema = schema(
+  const MySchema = schema(
     key("foo", is(Object)),
   );
-  const { valid, value, errors } = await mySchema.validate({
+  const { valid, value, errors } = MySchema.validate({
     foo: 42,
   });
   t.is(valid, false);
@@ -108,16 +113,16 @@ test("key() collects errors", async (t) => {
   }]);
 });
 
-test("key() is recursive", async (t) => {
+test("key() is recursive", (t) => {
   const { schema, is, key } = require("./schema.js");
-  const mySchema = schema(
+  const MySchema = schema(
     key(
       "name",
       is(Object),
       key("first", is(String)),
     ),
   );
-  const { valid, value, errors } = await mySchema.validate({
+  const { valid, value, errors } = MySchema.validate({
     name: {
       first: 42,
     },
@@ -137,17 +142,17 @@ test("key() is recursive", async (t) => {
   }]);
 });
 
-test("items() transform values", async (t) => {
+test("items() transform values", (t) => {
   const { schema, items, mapAdapter } = require("./schema.js");
   t.plan(3);
-  const mySchema = schema(
+  const MySchema = schema(
     items(
       mapAdapter(value => value * 2),
       mapAdapter(value => String(value) + String(value)),
       mapAdapter(Number),
     ),
   );
-  const { valid, value, errors } = await mySchema.validate([
+  const { valid, value, errors } = MySchema.validate([
     1,
     2,
     3,
@@ -162,12 +167,12 @@ test("items() transform values", async (t) => {
   t.deepEqual(errors, []);
 });
 
-test("items() collects errors", async (t) => {
+test("items() collects errors", (t) => {
   const { schema, is, items } = require("./schema.js");
-  const mySchema = schema(
+  const MySchema = schema(
     items(is(Number)),
   );
-  const { valid, value, errors } = await mySchema.validate([
+  const { valid, value, errors } = MySchema.validate([
     1,
     2,
     "3",
@@ -191,29 +196,29 @@ test("items() collects errors", async (t) => {
   }]);
 });
 
-test("schema().test() returns true if valid, false otherwise", async (t) => {
+test("schema().test() returns true if valid, false otherwise", (t) => {
   const { schema, is } = require("./schema.js");
-  const mySchema = schema(
+  const MySchema = schema(
     is(Object),
   );
-  t.is(await mySchema.test(42), false);
-  t.is(await mySchema.test({}), true);
-  t.is(await mySchema.test("hi"), false);
+  t.is(MySchema.test(42), false);
+  t.is(MySchema.test({}), true);
+  t.is(MySchema.test("hi"), false);
 });
 
-test("schema().assert() throws if invalid, doesn't otherwise", async (t) => {
+test("schema().assert() throws if invalid, doesn't otherwise", (t) => {
   const { schema, is } = require("./schema.js");
   t.plan(3);
-  const mySchema = schema(
+  const MySchema = schema(
     is(Object),
   );
-  await t.throwsAsync(async () => {
-    await mySchema.assert(42);
+  t.throws(() => {
+    MySchema.assert(42);
   });
-  await t.throwsAsync(async () => {
-    await mySchema.assert("hi");
+  t.throws(() => {
+    MySchema.assert("hi");
   });
-  await t.notThrowsAsync(async () => {
-    await mySchema.assert({});
+  t.notThrows(() => {
+    MySchema.assert({});
   });
 });
