@@ -316,16 +316,31 @@ useful for debugging or messaging to an end user.
 
 
 ``` js
-function notFoo(value, update, error) {
-  if (String(value).toLowerCase() !== "foo") {
-    // first argument is a unique error code
-    // second argument is a context object
-    error("not.foo", {
-      message: `foo expected, got ${value}`,
-      value,
-    });
-  }
+const { schema, is, items } = require("schema-fns");
+
+const MySchema = schema(
+  notFoo(),
+);
+
+// fails validation if the value equals "foo", "FOO", etc
+function notFoo() {
+  return function (value, update, error) {
+    if (String(value).toLowerCase() === "foo") {
+      // first argument is a unique error code
+      // second argument is a context object
+      error("not.foo", {
+        message: `not foo expected, got ${value}`,
+        value,
+      });
+    }
+  };
 }
+
+console.log(MySchema.test("foo")); //=> false
+console.log(MySchema.test("fOO")); //=> false
+console.log(MySchema.test("FOo")); //=> false
+console.log(MySchema.test(42)); //=> true
+console.log(MySchema.test({})); //=> true
 ```
 
 
