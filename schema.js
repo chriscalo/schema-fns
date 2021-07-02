@@ -223,26 +223,26 @@ function mapAdapter(mapFn) {
 
 function isType(type) {
   const types = new Map();
-  types.set("undefined", { expected: "undefined", test: is.undefined});
-  types.set(undefined,   { expected: "undefined", test: is.undefined});
-  types.set("null",      { expected: "null",      test: is.null});
-  types.set(null,        { expected: "null",      test: is.null});
-  types.set(Object,      { expected: "object",    test: is.object});
-  types.set("object",    { expected: "object",    test: is.object});
-  types.set(Array,       { expected: "array",     test: is.array});
-  types.set("array",     { expected: "array",     test: is.array});
-  types.set(Boolean,     { expected: "boolean",   test: is.boolean});
-  types.set("boolean",   { expected: "boolean",   test: is.boolean});
-  types.set(Number,      { expected: "number",    test: is.number});
-  types.set("number",    { expected: "number",    test: is.number});
-  types.set(BigInt,      { expected: "bigint",    test: is.bigint});
-  types.set("bigint",    { expected: "bigint",    test: is.bigint});
-  types.set(String,      { expected: "string",    test: is.string});
-  types.set("string",    { expected: "string",    test: is.string});
-  types.set(Symbol,      { expected: "symbol",    test: is.symbol});
-  types.set("symbol",    { expected: "symbol",    test: is.symbol});
-  types.set(Function,    { expected: "function",  test: is.function});
-  types.set("function",  { expected: "function",  test: is.function});
+  types.set("undefined", { expected: "undefined", test: is.undefined });
+  types.set(undefined,   { expected: "undefined", test: is.undefined });
+  types.set("null",      { expected: "null",      test: is.null });
+  types.set(null,        { expected: "null",      test: is.null });
+  types.set(Object,      { expected: "object",    test: is.object });
+  types.set("object",    { expected: "object",    test: is.object });
+  types.set(Array,       { expected: "array",     test: is.array });
+  types.set("array",     { expected: "array",     test: is.array });
+  types.set(Boolean,     { expected: "boolean",   test: is.boolean });
+  types.set("boolean",   { expected: "boolean",   test: is.boolean });
+  types.set(Number,      { expected: "number",    test: is.number });
+  types.set("number",    { expected: "number",    test: is.number });
+  types.set(BigInt,      { expected: "bigint",    test: is.bigint });
+  types.set("bigint",    { expected: "bigint",    test: is.bigint });
+  types.set(String,      { expected: "string",    test: is.string });
+  types.set("string",    { expected: "string",    test: is.string });
+  types.set(Symbol,      { expected: "symbol",    test: is.symbol });
+  types.set("symbol",    { expected: "symbol",    test: is.symbol });
+  types.set(Function,    { expected: "function",  test: is.function });
+  types.set("function",  { expected: "function",  test: is.function });
   
   return function (value, update, error) {
     const { expected, test } = types.get(type);
