@@ -346,6 +346,6 @@ console.log(MySchema.test({})); //=> true
 
 ## Credit
 
-Inspired by Joi and superstruct.
+Inspired by [Joi](https://joi.dev/api/) and [superstruct](https://docs.superstructjs.org/).
 
 
