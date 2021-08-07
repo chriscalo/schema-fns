@@ -1,7 +1,7 @@
 {
   "name": "schema-fns",
   "description": "Composable schema functions for input transformation and validation",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "main": "schema.js",
   "scripts": {
     "test": "ava --verbose",
