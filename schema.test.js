@@ -222,3 +222,32 @@ test("schema().assert() throws if invalid, doesn't otherwise", (t) => {
     MySchema.assert({});
   });
 });
+
+test("isUrl() validates humanized URLs", (t) => {
+  const { schema, isUrl } = require("./schema.js");
+  
+  const MySchema = schema(
+    isUrl(),
+  );
+  
+  // humanized URLs
+  t.is(true, MySchema.validate("google.com").valid);
+  t.is(true, MySchema.validate("google.com/path").valid);
+  t.is(true, MySchema.validate("www.google.com").valid);
+  t.is(true, MySchema.validate("http://google.com").valid);
+  t.is(true, MySchema.validate("https://google.com").valid);
+  t.is(true, MySchema.validate("ftp://google.com").valid);
+  
+  // non-URLs
+  t.is(false, MySchema.validate("foo").valid);
+  t.is(false, MySchema.validate("http").valid);
+  t.is(false, MySchema.validate("http:").valid);
+  t.is(false, MySchema.validate("http://").valid);
+  t.is(false, MySchema.validate("/bar").valid);
+  t.is(false, MySchema.validate("foo/bar").valid);
+  
+  // falsy values should pass? => or should we use an optional() function? 🤔
+  t.is(true, MySchema.validate("").valid);
+  t.is(true, MySchema.validate(null).valid);
+  t.is(true, MySchema.validate(undefined).valid);
+});
