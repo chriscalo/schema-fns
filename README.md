@@ -19,7 +19,7 @@ schema objects. Those functions have a signature of `(value, update, error)`,
 where:
 - `value` is the input value to be transformed and validated, 
 - `update` is a function used to return a modified input value, and
-- `error` is a function used to create.
+- `error` is a function used to create validation errors.
 
 ## Input transformation
 
