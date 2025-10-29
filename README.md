@@ -4,8 +4,6 @@ Composable schema functions for input transformation and validation
 ## Installation
 
 ``` sh
-yarn add schema-fns
-# or
 npm install schema-fns
 ```
 
