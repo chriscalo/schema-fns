@@ -23,8 +23,7 @@
   },
   "homepage": "https://github.com/chriscalo/schema-fns#readme",
   "devDependencies": {
-    "ava": "^3.15.0",
-    "markserv": "^1.17.4"
+    "ava": "^3.15.0"
   },
   "dependencies": {
     "is": "^3.3.0",
