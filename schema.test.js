@@ -776,16 +776,44 @@ await test("string.* type guards", async (ctx) => {
 });
 
 
-await test("number.* type guards", async (ctx) => {
-  await ctx.test("number.min rejects non-numbers and NaN", () => {
-    assert.equal(number.min(1).validate("5").valid, false);
-    assert.equal(number.min(1).validate(NaN).valid, false);
-    assert.equal(number.min(1).validate(null).valid, false);
+await test("number.* coercion", async (ctx) => {
+  await ctx.test("accepts numeric strings (forms pass strings)", () => {
+    assert.equal(number.min(1).validate("5").valid, true);
+    assert.equal(number.min(10).validate("5").valid, false);
+    assert.equal(number.max(10).validate("5").valid, true);
+    assert.equal(number.max(1).validate("5").valid, false);
+    assert.equal(number.integer().validate("5").valid, true);
+    assert.equal(number.positive().validate("5").valid, true);
+    assert.equal(number.nonNegative().validate("0").valid, true);
   });
   
-  await ctx.test("number.max rejects non-numbers and NaN", () => {
-    assert.equal(number.max(5).validate("1").valid, false);
-    assert.equal(number.max(5).validate(NaN).valid, false);
+  await ctx.test("accepts whitespace and negative/decimal strings", () => {
+    assert.equal(number.min(1).validate(" 5 ").valid, true);
+    assert.equal(number.min(-10).validate("-3.14").valid, true);
+  });
+  
+  await ctx.test("rejects non-numeric strings", () => {
+    assert.equal(number.min(1).validate("abc").valid, false);
+    assert.equal(number.min(1).validate("5abc").valid, false);
+    assert.equal(number.min(1).validate("").valid, false);
+    assert.equal(number.min(1).validate("   ").valid, false);
+  });
+  
+  await ctx.test("rejects NaN, Infinity, null, booleans, objects", () => {
+    const bad = [
+      NaN, Infinity, -Infinity,
+      null, undefined,
+      true, false,
+      [], {},
+    ];
+    for (const input of bad) {
+      assert.equal(number.min(1).validate(input).valid, false);
+    }
+  });
+  
+  await ctx.test("number.integer rejects non-integer strings", () => {
+    assert.equal(number.integer().validate("5.5").valid, false);
+    assert.equal(number.integer().validate("5").valid, true);
   });
 });
 

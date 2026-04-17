@@ -172,6 +172,12 @@ number.positive();        // > 0, throws PositiveNumberError
 number.nonNegative();     // >= 0, throws NonNegativeNumberError
 ```
 
+`number.*` bound checks accept cleanly-coercible strings so form inputs work
+without a preceding `type.to(Number)`. `"5"` and `" 5 "` pass; `""`, `"abc"`,
+`"5abc"`, `NaN`, `Infinity`, `null`, `undefined`, booleans, arrays, and plain
+objects are rejected. Values pass through unchanged. Use `type.to(Number)` if
+you want the output transformed.
+
 ## Length
 
 ### `minLength(n)`
