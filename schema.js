@@ -740,9 +740,6 @@ export function isEmpty(value) {
 }
 
 
-export const mapAdapter = (fn) => new Validator(fn);
-
-
 function isThenable(value) {
   return (
     value !== null &&

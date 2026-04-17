@@ -199,14 +199,14 @@ const evenNumber = new Validator((value) => {
 });
 ```
 
-## `mapAdapter(fn)`
+## Transforms
 
-Thin alias for `new Validator(fn)`. A function passed to the `Validator`
-constructor already acts as a transform — whatever the function returns (if not
-`undefined`) replaces the value.
+A `Validator`'s function can return a new value. Whatever it returns (if not
+`undefined`) replaces the input; returning `undefined` leaves the input
+unchanged.
 
 ```js
-const upper = mapAdapter((value) => value.toUpperCase());
+const upper = new Validator((value) => value.toUpperCase());
 upper.validate("hi").value; // "HI"
 ```
 
@@ -250,6 +250,7 @@ shims.
 | `length(min, max)`               | `string.minLength(min)` + `string.maxLength(max)` |
 | `hasKeys(...keys)`               | `hasKey(key)` (one per call)                      |
 | `(value, update, error)` handler | `new Validator(fn)` / plain `fn` in `schema()`    |
+| `mapAdapter(fn)`                 | `new Validator(fn)`                               |
 | error objects with `code`        | `ValidationError` subclass instances              |
 
 The handler shape changed. Instead of calling `update()` and `error()`, return

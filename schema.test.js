@@ -13,7 +13,6 @@ import {
   FiniteNumberError, NonIntegerError,
   PositiveNumberError, NonNegativeNumberError,
   isEmpty,
-  mapAdapter,
 } from "./schema.js";
 
 
@@ -791,21 +790,16 @@ await test("number.* type guards", async (ctx) => {
 });
 
 
-await test("mapAdapter()", async (ctx) => {
-  await ctx.test("returns a Validator", () => {
-    const vld = mapAdapter((num) => num * 2);
-    assert.equal(vld instanceof Validator, true);
-  });
-  
-  await ctx.test("transforms the value when fn returns non-undefined", () => {
-    const vld = mapAdapter((num) => num * 2);
+await test("Validator as transform", async (ctx) => {
+  await ctx.test("transforms value when fn returns non-undefined", () => {
+    const vld = new Validator((num) => num * 2);
     const result = vld.validate(5);
     assert.equal(result.valid, true);
     assert.equal(result.value, 10);
   });
   
   await ctx.test("passes value through when fn returns undefined", () => {
-    const vld = mapAdapter(() => undefined);
+    const vld = new Validator(() => undefined);
     const result = vld.validate(5);
     assert.equal(result.valid, true);
     assert.equal(result.value, 5);
