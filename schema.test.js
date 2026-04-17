@@ -1,80 +1,110 @@
-const test = require("ava");
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const {
+  schema,
+  mapAdapter,
+  key,
+  hasKeys,
+  items,
+  is,
+  isUrl,
+  required,
+  isType,
+  as,
+  to,
+  isOneOf,
+  length,
+} = require("./schema.js");
 
-test("schema() returns a function", (t) => {
-  const { schema } = require("./schema.js");
-  t.is(typeof schema(), "function");
+test("module exports", () => {
+  assert.strictEqual(typeof schema, "function");
+  assert.strictEqual(typeof mapAdapter, "function");
+  assert.strictEqual(typeof key, "function");
+  assert.strictEqual(typeof hasKeys, "function");
+  assert.strictEqual(typeof items, "function");
+  assert.strictEqual(typeof is, "function");
+  assert.strictEqual(typeof isUrl, "function");
+  assert.strictEqual(typeof required, "function");
+  assert.strictEqual(typeof isType, "function");
+  assert.strictEqual(typeof as, "function");
+  assert.strictEqual(typeof to, "function");
+  assert.strictEqual(typeof isOneOf, "function");
+  assert.strictEqual(typeof length, "function");
 });
 
-test("schema() has sync & async validate, test, and assert functions", (t) => {
-  const { schema } = require("./schema.js");
-  t.is(typeof schema().validate, "function");
-  t.is(typeof schema().test, "function");
-  t.is(typeof schema().assert, "function");
-  t.is(typeof schema().validateAsync, "function");
-  t.is(typeof schema().testAsync, "function");
-  t.is(typeof schema().assertAsync, "function");
+test("schema() returns a function", () => {
+  assert.strictEqual(typeof schema(), "function");
 });
 
-test("transform functions modify the value", (t) => {
-  const { schema, mapAdapter } = require("./schema.js");
+test("schema() has sync & async validate, test, and assert functions", () => {
+  const s = schema();
+  assert.strictEqual(typeof s.validate, "function");
+  assert.strictEqual(typeof s.test, "function");
+  assert.strictEqual(typeof s.assert, "function");
+  assert.strictEqual(typeof s.validateAsync, "function");
+  assert.strictEqual(typeof s.testAsync, "function");
+  assert.strictEqual(typeof s.assertAsync, "function");
+});
+
+test("transform functions modify the value", () => {
   const MySchema = schema(
     mapAdapter(value => String(value)),
     mapAdapter(value => value + "1"),
   );
-  const { valid, value, errors } = MySchema.validate(42);
-  t.is(valid, true);
-  t.is(value, "421");
-  // FIXME: should error be null if empty? 🤔
-  t.deepEqual(errors, []);
+  const actual = MySchema.validate(42);
+  const expected = {
+    valid: true,
+    value: "421",
+    errors: [],
+  };
+  assert.deepStrictEqual(actual, expected);
 });
 
-// TODO: test mapAdapter()
-
-// TODO: test that errors are of type ValidationError
-// OR: a single ValidationError is created with an array of the problems found
-
-test("schema().validate() collects and returns errors", (t) => {
-  const { schema, is } = require("./schema.js");
+test("schema().validate() collects and returns errors", () => {
   const MySchema = schema(
     is(Object),
   );
-  const { valid, value, errors } = MySchema.validate(42);
-  t.is(valid, false);
-  t.is(value, 42);
-  t.deepEqual(errors, [{
-    code: "is.type",
-    path: [],
-    message: "wrong type: expected object",
-    expectedType: "object",
+  const actual = MySchema.validate(42);
+  const expected = {
+    valid: false,
     value: 42,
-  }]);
+    errors: [{
+      code: "is.type",
+      path: [],
+      message: "wrong type: expected object",
+      expectedType: "object",
+      value: 42,
+    }],
+  };
+  assert.deepStrictEqual(actual, expected);
 });
 
-test("hasKeys() returns errors when keys are missing", (t) => {
-  const { schema, hasKeys } = require("./schema.js");
+test("hasKeys() returns errors when keys are missing", () => {
   const MySchema = schema(
     hasKeys("foo", "bar"),
   );
-  const { valid, value, errors } = MySchema.validate({});
-  t.is(valid, false);
-  t.deepEqual(value, {});
-  t.deepEqual(errors, [{
-    code: "key.missing",
-    path: [],
-    message: `expected key "foo" missing`,
-    key: "foo",
+  const actual = MySchema.validate({});
+  const expected = {
+    valid: false,
     value: {},
-  }, {
-    code: "key.missing",
-    path: [],
-    message: `expected key "bar" missing`,
-    key: "bar",
-    value: {},
-  }]);
+    errors: [{
+      code: "key.missing",
+      path: [],
+      message: `expected key "foo" missing`,
+      key: "foo",
+      value: {},
+    }, {
+      code: "key.missing",
+      path: [],
+      message: `expected key "bar" missing`,
+      key: "bar",
+      value: {},
+    }],
+  };
+  assert.deepStrictEqual(actual, expected);
 });
 
-test("key() transforms value", (t) => {
-  const { schema, key, mapAdapter } = require("./schema.js");
+test("key() transforms value", () => {
   const MySchema = schema(
     key(
       "name",
@@ -82,39 +112,35 @@ test("key() transforms value", (t) => {
       mapAdapter(value => String(value).toUpperCase()),
     ),
   );
-  const { valid, value, errors } = MySchema.validate({
-    name: "World",
-  });
-  t.is(valid, true);
-  t.deepEqual(value, {
-    "name": "HELLO, WORLD!",
-  });
-  t.deepEqual(errors, []);
+  const actual = MySchema.validate({ name: "World" });
+  const expected = {
+    valid: true,
+    value: { name: "HELLO, WORLD!" },
+    errors: [],
+  };
+  assert.deepStrictEqual(actual, expected);
 });
 
-test("key() collects errors", (t) => {
-  const { schema, is, key } = require("./schema.js");
+test("key() collects errors", () => {
   const MySchema = schema(
     key("foo", is(Object)),
   );
-  const { valid, value, errors } = MySchema.validate({
-    foo: 42,
-  });
-  t.is(valid, false);
-  t.deepEqual(value, {
-    foo: 42,
-  });
-  t.deepEqual(errors, [{
-    code: "is.type",
-    path: ["foo"],
-    message: "wrong type: expected object",
-    expectedType: "object",
-    value: 42,
-  }]);
+  const actual = MySchema.validate({ foo: 42 });
+  const expected = {
+    valid: false,
+    value: { foo: 42 },
+    errors: [{
+      code: "is.type",
+      path: ["foo"],
+      message: "wrong type: expected object",
+      expectedType: "object",
+      value: 42,
+    }],
+  };
+  assert.deepStrictEqual(actual, expected);
 });
 
-test("key() is recursive", (t) => {
-  const { schema, is, key } = require("./schema.js");
+test("key() is recursive", () => {
   const MySchema = schema(
     key(
       "name",
@@ -122,29 +148,22 @@ test("key() is recursive", (t) => {
       key("first", is(String)),
     ),
   );
-  const { valid, value, errors } = MySchema.validate({
-    name: {
-      first: 42,
-    },
-  });
-  t.is(valid, false);
-  t.deepEqual(value, {
-    name: {
-      first: 42,
-    },
-  });
-  t.deepEqual(errors, [{
-    code: "is.type",
-    path: ["name", "first"],
-    message: "wrong type: expected string",
-    expectedType: "string",
-    value: 42,
-  }]);
+  const actual = MySchema.validate({ name: { first: 42 } });
+  const expected = {
+    valid: false,
+    value: { name: { first: 42 } },
+    errors: [{
+      code: "is.type",
+      path: ["name", "first"],
+      message: "wrong type: expected string",
+      expectedType: "string",
+      value: 42,
+    }],
+  };
+  assert.deepStrictEqual(actual, expected);
 });
 
-test("items() transform values", (t) => {
-  const { schema, items, mapAdapter } = require("./schema.js");
-  t.plan(3);
+test("items() transform values", () => {
   const MySchema = schema(
     items(
       mapAdapter(value => value * 2),
@@ -152,102 +171,78 @@ test("items() transform values", (t) => {
       mapAdapter(Number),
     ),
   );
-  const { valid, value, errors } = MySchema.validate([
-    1,
-    2,
-    3,
-  ]);
-  
-  t.is(valid, true);
-  t.deepEqual(value, [
-    22,
-    44,
-    66,
-  ]);
-  t.deepEqual(errors, []);
+  const actual = MySchema.validate([1, 2, 3]);
+  const expected = {
+    valid: true,
+    value: [22, 44, 66],
+    errors: [],
+  };
+  assert.deepStrictEqual(actual, expected);
 });
 
-test("items() collects errors", (t) => {
-  const { schema, is, items } = require("./schema.js");
+test("items() collects errors", () => {
   const MySchema = schema(
     items(is(Number)),
   );
-  const { valid, value, errors } = MySchema.validate([
-    1,
-    2,
-    "3",
-    4,
-    "5",
-  ]);
-  t.is(valid, false);
-  t.deepEqual(value, [1, 2, "3", 4, "5"]);
-  t.deepEqual(errors, [{
-    code: "is.type",
-    path: [2],
-    message: "wrong type: expected number",
-    expectedType: "number",
-    value: "3",
-  }, {
-    code: "is.type",
-    path: [4],
-    message: "wrong type: expected number",
-    expectedType: "number",
-    value: "5",
-  }]);
+  const actual = MySchema.validate([1, 2, "3", 4, "5"]);
+  const expected = {
+    valid: false,
+    value: [1, 2, "3", 4, "5"],
+    errors: [{
+      code: "is.type",
+      path: [2],
+      message: "wrong type: expected number",
+      expectedType: "number",
+      value: "3",
+    }, {
+      code: "is.type",
+      path: [4],
+      message: "wrong type: expected number",
+      expectedType: "number",
+      value: "5",
+    }],
+  };
+  assert.deepStrictEqual(actual, expected);
 });
 
-test("schema().test() returns true if valid, false otherwise", (t) => {
-  const { schema, is } = require("./schema.js");
+test("schema().test() returns true if valid, false otherwise", () => {
   const MySchema = schema(
     is(Object),
   );
-  t.is(MySchema.test(42), false);
-  t.is(MySchema.test({}), true);
-  t.is(MySchema.test("hi"), false);
+  assert.strictEqual(MySchema.test(42), false);
+  assert.strictEqual(MySchema.test({}), true);
+  assert.strictEqual(MySchema.test("hi"), false);
 });
 
-test("schema().assert() throws if invalid, doesn't otherwise", (t) => {
-  const { schema, is } = require("./schema.js");
-  t.plan(3);
+test("schema().assert() throws if invalid, doesn't otherwise", () => {
   const MySchema = schema(
     is(Object),
   );
-  t.throws(() => {
-    MySchema.assert(42);
-  });
-  t.throws(() => {
-    MySchema.assert("hi");
-  });
-  t.notThrows(() => {
-    MySchema.assert({});
-  });
+  assert.throws(() => MySchema.assert(42));
+  assert.throws(() => MySchema.assert("hi"));
+  MySchema.assert({});
 });
 
-test("isUrl() validates humanized URLs", (t) => {
-  const { schema, isUrl } = require("./schema.js");
-  
+test("isUrl() validates humanized URLs", () => {
   const MySchema = schema(
     isUrl(),
   );
-  
-  // humanized URLs
-  t.is(true, MySchema.validate("google.com").valid);
-  t.is(true, MySchema.validate("google.com/path").valid);
-  t.is(true, MySchema.validate("www.google.com").valid);
-  t.is(true, MySchema.validate("http://google.com").valid);
-  t.is(true, MySchema.validate("https://google.com").valid);
-  t.is(true, MySchema.validate("ftp://google.com").valid);
-  
-  // non-URLs
-  t.is(false, MySchema.validate("foo").valid);
-  t.is(false, MySchema.validate("http").valid);
-  t.is(false, MySchema.validate("http:").valid);
-  t.is(false, MySchema.validate("http://").valid);
-  t.is(false, MySchema.validate("/bar").valid);
-  t.is(false, MySchema.validate("foo/bar").valid);
-  
-  // falsy values should pass? => or should we use an optional() function? 🤔
-  t.is(true, MySchema.validate("").valid);
-  t.is(true, MySchema.validate(null).valid);
-  t.is(true, MySchema.validate(undefined).valid);
+
+  assert.ok(MySchema.validate("google.com").valid);
+  assert.ok(MySchema.validate("google.com/path").valid);
+  assert.ok(MySchema.validate("www.google.com").valid);
+  assert.ok(MySchema.validate("http://google.com").valid);
+  assert.ok(MySchema.validate("https://google.com").valid);
+  assert.ok(MySchema.validate("ftp://google.com").valid);
+
+  assert.ok(!MySchema.validate("foo").valid);
+  assert.ok(!MySchema.validate("http").valid);
+  assert.ok(!MySchema.validate("http:").valid);
+  assert.ok(!MySchema.validate("http://").valid);
+  assert.ok(!MySchema.validate("/bar").valid);
+  assert.ok(!MySchema.validate("foo/bar").valid);
+
+  assert.ok(MySchema.validate("").valid);
+  assert.ok(MySchema.validate(null).valid);
+  assert.ok(MySchema.validate(undefined).valid);
 });
