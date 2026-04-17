@@ -1,6 +1,6 @@
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const {
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
   schema,
   mapAdapter,
   key,
@@ -14,7 +14,7 @@ const {
   to,
   isOneOf,
   length,
-} = require("./schema.js");
+} from "./schema.js";
 
 test("module exports", () => {
   assert.strictEqual(typeof schema, "function");
