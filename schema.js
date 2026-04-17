@@ -627,14 +627,13 @@ export function number() {
 
 number.min = function numberMin(min) {
   return new Validator((value) => {
-    const num = coerceFiniteNumber(value);
-    if (num === null) {
+    if (!isRealNumber(value)) {
       throw new MinimumNumberError({
         message: "Value must be a number",
         details: { value, valueType: typeof value, min },
       });
     }
-    if (num < min) {
+    if (value < min) {
       throw new MinimumNumberError({
         message: `Value must be at least ${min}`,
         details: { value, min },
@@ -645,14 +644,13 @@ number.min = function numberMin(min) {
 
 number.max = function numberMax(max) {
   return new Validator((value) => {
-    const num = coerceFiniteNumber(value);
-    if (num === null) {
+    if (!isRealNumber(value)) {
       throw new MaximumNumberError({
         message: "Value must be a number",
         details: { value, valueType: typeof value, max },
       });
     }
-    if (num > max) {
+    if (value > max) {
       throw new MaximumNumberError({
         message: `Value must be no larger than ${max}`,
         details: { value, max },
@@ -663,7 +661,7 @@ number.max = function numberMax(max) {
 
 number.finite = function numberFinite() {
   return new Validator((value) => {
-    if (coerceFiniteNumber(value) === null) {
+    if (!Number.isFinite(value)) {
       throw new FiniteNumberError({
         message: "Value must be a finite number",
         details: { value },
@@ -674,8 +672,7 @@ number.finite = function numberFinite() {
 
 number.integer = function numberInteger() {
   return new Validator((value) => {
-    const num = coerceFiniteNumber(value);
-    if (num === null || !Number.isInteger(num)) {
+    if (!Number.isInteger(value)) {
       throw new NonIntegerError({
         message: "Value must be an integer",
         details: { value },
@@ -686,8 +683,7 @@ number.integer = function numberInteger() {
 
 number.positive = function numberPositive() {
   return new Validator((value) => {
-    const num = coerceFiniteNumber(value);
-    if (num === null || num <= 0) {
+    if (!isRealNumber(value) || value <= 0) {
       throw new PositiveNumberError({
         message: "Value must be a positive number",
         details: { value },
@@ -698,8 +694,7 @@ number.positive = function numberPositive() {
 
 number.nonNegative = function numberNonNegative() {
   return new Validator((value) => {
-    const num = coerceFiniteNumber(value);
-    if (num === null || num < 0) {
+    if (!isRealNumber(value) || value < 0) {
       throw new NonNegativeNumberError({
         message: "Value must be a non-negative number",
         details: { value },
@@ -708,17 +703,8 @@ number.nonNegative = function numberNonNegative() {
   });
 };
 
-function coerceFiniteNumber(value) {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : null;
-  }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (trimmed.length === 0) return null;
-    const num = Number(trimmed);
-    return Number.isFinite(num) ? num : null;
-  }
-  return null;
+function isRealNumber(value) {
+  return typeof value === "number" && !Number.isNaN(value);
 }
 
 

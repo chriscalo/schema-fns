@@ -776,44 +776,31 @@ await test("string.* type guards", async (ctx) => {
 });
 
 
-await test("number.* coercion", async (ctx) => {
-  await ctx.test("accepts numeric strings (forms pass strings)", () => {
-    assert.equal(number.min(1).validate("5").valid, true);
-    assert.equal(number.min(10).validate("5").valid, false);
-    assert.equal(number.max(10).validate("5").valid, true);
-    assert.equal(number.max(1).validate("5").valid, false);
-    assert.equal(number.integer().validate("5").valid, true);
-    assert.equal(number.positive().validate("5").valid, true);
-    assert.equal(number.nonNegative().validate("0").valid, true);
+await test("number.* type strictness", async (ctx) => {
+  await ctx.test("rejects strings; use type.to(Number) to coerce", () => {
+    assert.equal(number.min(1).validate("5").valid, false);
+    assert.equal(number.max(10).validate("5").valid, false);
+    assert.equal(number.positive().validate("5").valid, false);
+    assert.equal(number.integer().validate("5").valid, false);
+    
+    const Coerced = schema(type.to(Number), number.min(1));
+    const result = Coerced.validate("5");
+    assert.equal(result.valid, true);
+    assert.equal(result.value, 5);
   });
   
-  await ctx.test("accepts whitespace and negative/decimal strings", () => {
-    assert.equal(number.min(1).validate(" 5 ").valid, true);
-    assert.equal(number.min(-10).validate("-3.14").valid, true);
+  await ctx.test("rejects NaN across every bound check", () => {
+    assert.equal(number.min(1).validate(NaN).valid, false);
+    assert.equal(number.max(1).validate(NaN).valid, false);
+    assert.equal(number.positive().validate(NaN).valid, false);
+    assert.equal(number.nonNegative().validate(NaN).valid, false);
   });
   
-  await ctx.test("rejects non-numeric strings", () => {
-    assert.equal(number.min(1).validate("abc").valid, false);
-    assert.equal(number.min(1).validate("5abc").valid, false);
-    assert.equal(number.min(1).validate("").valid, false);
-    assert.equal(number.min(1).validate("   ").valid, false);
-  });
-  
-  await ctx.test("rejects NaN, Infinity, null, booleans, objects", () => {
-    const bad = [
-      NaN, Infinity, -Infinity,
-      null, undefined,
-      true, false,
-      [], {},
-    ];
+  await ctx.test("rejects null, undefined, booleans, objects", () => {
+    const bad = [null, undefined, true, false, [], {}];
     for (const input of bad) {
       assert.equal(number.min(1).validate(input).valid, false);
     }
-  });
-  
-  await ctx.test("number.integer rejects non-integer strings", () => {
-    assert.equal(number.integer().validate("5.5").valid, false);
-    assert.equal(number.integer().validate("5").valid, true);
   });
 });
 

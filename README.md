@@ -172,11 +172,18 @@ number.positive();        // > 0, throws PositiveNumberError
 number.nonNegative();     // >= 0, throws NonNegativeNumberError
 ```
 
-`number.*` bound checks accept cleanly-coercible strings so form inputs work
-without a preceding `type.to(Number)`. `"5"` and `" 5 "` pass; `""`, `"abc"`,
-`"5abc"`, `NaN`, `Infinity`, `null`, `undefined`, booleans, arrays, and plain
-objects are rejected. Values pass through unchanged. Use `type.to(Number)` if
-you want the output transformed.
+`number.*` is strict: non-numbers (including numeric strings like `"5"`) and
+`NaN` are rejected. Coerce at the boundary with `type.to(Number)` when the input
+is a string:
+
+```js
+// For form inputs that arrive as strings:
+const Age = schema(type.to(Number), number.integer(), number.nonNegative());
+Age.validate("5").value; // 5
+```
+
+This keeps validators honest about what they accept and leaves coercion visible
+in the schema itself.
 
 ## Length
 
