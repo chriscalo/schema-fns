@@ -2,6 +2,7 @@
   "name": "schema-fns",
   "description": "Composable schema functions for input transformation and validation",
   "version": "0.1.5",
+  "type": "module",
   "main": "schema.js",
   "scripts": {
     "test": "node --test",
@@ -22,9 +23,15 @@
     "url": "https://github.com/chriscalo/schema-fns/issues"
   },
   "homepage": "https://github.com/chriscalo/schema-fns#readme",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "dependencies": {
     "is": "^3.3.0",
     "parse-domain": "^3.0.3",
     "url-parse-lax": "^4.0.0"
+  },
+  "volta": {
+    "node": "22.22.2"
   }
 }

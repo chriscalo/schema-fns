@@ -1,8 +1,8 @@
-const is = require("is");
-const urlParseLax = require("url-parse-lax");
-const { parseDomain } = require("parse-domain");
+import is from "is";
+import urlParseLax from "url-parse-lax";
+import { parseDomain } from "parse-domain";
 
-function schema(...fns) {
+export function schema(...fns) {
   // ensure all args are functions
   for (const [index, fn] of Object.entries(fns)) {
     if (!is.fn(fn)) {
@@ -20,32 +20,32 @@ function schema(...fns) {
     }
     update(output);
   }
-  
+
   handler.validate = validate;
   handler.test = test;
   handler.assert = assert;
   handler.validateAsync = validateAsync;
   handler.testAsync = testAsync;
   handler.assertAsync = assertAsync;
-  
+
   function validate(input) {
     return validationPipeline(...fns)(input);
   }
-  
+
   async function validateAsync(input) {
     return await validationPipelineAsync(...fns)(input);
   }
-  
+
   function test(input) {
     const { valid } = validate(input);
     return valid;
   }
-  
+
   async function testAsync(input) {
     const { valid } = await validateAsync(input);
     return valid;
   }
-  
+
   function assert(input) {
     const { valid, value, errors } = validate(input);
     if (!valid) {
@@ -57,7 +57,7 @@ function schema(...fns) {
       };
     }
   }
-  
+
   async function assertAsync(input) {
     const { valid, value, errors } = await validateAsync(input);
     if (!valid) {
@@ -69,7 +69,7 @@ function schema(...fns) {
       };
     }
   }
-  
+
   function createValidationError(errors) {
     const message = [
       `Schema validation failed: ${errors.length} errors found`,
@@ -79,7 +79,7 @@ function schema(...fns) {
     error.details = [...errors];
     return error;
   }
-  
+
   return handler;
 }
 
@@ -90,13 +90,13 @@ function formatError(error) {
   return `[${code}] ${path.join(".")}: ${message}, received: ${value}`;
 }
 
-function key(name, ...fns) {
+export function key(name, ...fns) {
   const keySchema = schema(...fns);
-  
+
   return function (value, update, error) {
     const input = value[name];
     keySchema(input, keyUpdate, keyError);
-    
+
     function keyUpdate(newKeyValue) {
       const newValue = {
         ...value,
@@ -104,7 +104,7 @@ function key(name, ...fns) {
       };
       update(newValue);
     }
-    
+
     function keyError(code, context) {
       // runs depth first, so we need to prepend the key name
       error(code, {
@@ -116,25 +116,25 @@ function key(name, ...fns) {
 }
 
 // validate an array of items
-function items(...fns) {
+export function items(...fns) {
   const itemSchema = schema(...fns);
-  
+
   return function (value, update, error) {
     let items = value;
     let index = 0;
-    
+
     while (index < items.length) {
       const item = items[index];
       itemSchema(item, itemUpdate, itemError);
       index++;
-      
+
       function itemUpdate(newItemValue) {
         const newValue = [...items];
         newValue[index] = newItemValue;
         update(newValue);
         items = newValue;
       }
-      
+
       function itemError(code, context) {
         // runs depth first, so we need to prepend the key name
         error(code, {
@@ -146,7 +146,7 @@ function items(...fns) {
   };
 }
 
-function hasKeys(...keys) {
+export function hasKeys(...keys) {
   // TODO: assert keys are all strings
   return function (value, update, error) {
     const missingKeys = keys.filter(key => !(key in value));
@@ -164,18 +164,18 @@ function validationPipeline(...functions) {
   return function execValidationPipeline(input, update, error) {
     const errors = [];
     let value = input;
-    
+
     for (const fn of functions) {
       fn(value, update, error);
     }
-    
+
     const valid = !Boolean(errors.length);
     return { value, valid, errors };
-    
+
     function update(newValue) {
       value = newValue;
     }
-    
+
     function error(code, context) {
       const e = {
         code,
@@ -191,18 +191,18 @@ function validationPipelineAsync(...functions) {
   return async function execValidationPipelineAsync(input, update, error) {
     const errors = [];
     let value = input;
-    
+
     for (const fn of functions) {
       await fn(value, update, error);
     }
-    
+
     const valid = !Boolean(errors.length);
     return { value, valid, errors };
-    
+
     function update(newValue) {
       value = newValue;
     }
-    
+
     function error(code, context) {
       const e = {
         code,
@@ -214,7 +214,7 @@ function validationPipelineAsync(...functions) {
   }
 }
 
-function mapAdapter(mapFn) {
+export function mapAdapter(mapFn) {
   return function (value, update) {
     const returnValue = mapFn(value);
     if (typeof returnValue !== "undefined") {
@@ -223,7 +223,7 @@ function mapAdapter(mapFn) {
   };
 }
 
-function isType(type) {
+export function isType(type) {
   const types = new Map();
   types.set("undefined", { expected: "undefined", test: is.undefined });
   types.set(undefined,   { expected: "undefined", test: is.undefined });
@@ -245,7 +245,7 @@ function isType(type) {
   types.set("symbol",    { expected: "symbol",    test: is.symbol });
   types.set(Function,    { expected: "function",  test: is.function });
   types.set("function",  { expected: "function",  test: is.function });
-  
+
   return function (value, update, error) {
     const { expected, test } = types.get(type);
     if (!test(value)) {
@@ -258,7 +258,7 @@ function isType(type) {
   };
 }
 
-function as(type) {
+export function as(type) {
   const types = new Map();
   types.set(Boolean,   function (value) { return Boolean(value); });
   types.set("boolean", function (value) { return Boolean(value); });
@@ -268,7 +268,7 @@ function as(type) {
   types.set("bigint",  function (value) { return BigInt(value); });
   types.set(String,    function (value) { return String(value); });
   types.set("string",  function (value) { return String(value); });
-  
+
   return function (value, update) {
     const fn = types.get(type);
     const newValue = fn(value);
@@ -277,7 +277,7 @@ function as(type) {
 }
 
 // FIXME: add tests
-function isOneOf(...values) {
+export function isOneOf(...values) {
   return function (value, update, error) {
     if (!values.includes(value)) {
       error("is.oneof", {
@@ -289,12 +289,12 @@ function isOneOf(...values) {
 }
 
 // FIXME: add tests
-function isUrl() {
+export function isUrl() {
   return function (value, update, error) {
     if (value && value.length) {
       const parsedUrl = urlParseLax(value);
       const parsedDomain = parseDomain(parsedUrl.hostname);
-      
+
       const domainValid =
         Boolean(parsedDomain.domain) &&
         Boolean(parsedDomain.topLevelDomains.length) &&
@@ -310,7 +310,7 @@ function isUrl() {
 }
 
 // FIXME: add tests
-function length(min = 0, max = Infinity) {
+export function length(min = 0, max = Infinity) {
   return function (value, update, error) {
     if (value.length < min) {
       const message = (min === 0) ?
@@ -320,7 +320,7 @@ function length(min = 0, max = Infinity) {
         message,
       });
     }
-    
+
     if (value.length > max) {
       error("length.max", {
         message: `value cannot exceed ${max} in length`,
@@ -330,7 +330,7 @@ function length(min = 0, max = Infinity) {
 }
 
 // FIXME: add tests
-function required() {
+export function required() {
   return function (value, update, error) {
     if (!Boolean(value)) {
       error("required", {
@@ -341,18 +341,4 @@ function required() {
   };
 }
 
-module.exports = {
- schema,
- key,
- hasKeys,
- items,
- mapAdapter,
- required,
- isType,
- is: isType,
- as,
- to: as,
- isOneOf,
- length,
- isUrl,
-};
+export { isType as is, as as to };
