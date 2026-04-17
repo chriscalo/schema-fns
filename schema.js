@@ -4,7 +4,7 @@ import { parseDomain } from "parse-domain";
 
 export class ValidationError extends Error {
   path = [];
-
+  
   constructor(messageOrOptions, extrasArg = undefined) {
     if (typeof messageOrOptions === "string") {
       const message = messageOrOptions;
@@ -49,17 +49,17 @@ export class ValidationResult {
   static ok(value) {
     return new ValidationResult({ valid: true, value });
   }
-
+  
   static error(errors) {
     return new ValidationResult({ valid: false, errors });
   }
-
+  
   constructor({ valid, value, errors }) {
     assert(
       typeof valid === "boolean",
       new TypeError("ValidationResult: options.valid must be a boolean"),
     );
-
+    
     if (valid) {
       this.valid = true;
       this.value = value;
@@ -73,23 +73,34 @@ export class ValidationResult {
 
 export class Validator {
   #validateFunction = () => {};
+  #validateAsyncFunction = null;
   #messageFunction = null;
-
-  constructor(validateFunction) {
+  
+  constructor(validateFunction, validateAsyncFunction = null) {
     assert(
       typeof validateFunction === "function",
       new TypeError(
         "new Validator(validateFunction): validateFunction must be a function",
       ),
     );
+    if (validateAsyncFunction !== null) {
+      assert(
+        typeof validateAsyncFunction === "function",
+        new TypeError(
+          "new Validator(_, validateAsyncFunction): " +
+            "validateAsyncFunction must be a function",
+        ),
+      );
+    }
     this.#validateFunction = validateFunction;
+    this.#validateAsyncFunction = validateAsyncFunction;
   }
-
+  
   message(stringOrFunction) {
     switch (typeof stringOrFunction) {
       case "string": {
-        const s = stringOrFunction;
-        this.#messageFunction = () => s;
+        const text = stringOrFunction;
+        this.#messageFunction = () => text;
         return this;
       }
       case "function": {
@@ -98,60 +109,67 @@ export class Validator {
       }
       default:
         throw new TypeError(
-          "Validator.message(stringOrFunction): stringOrFunction must be a string or function",
+          "Validator.message(stringOrFunction): " +
+            "stringOrFunction must be a string or function",
         );
     }
   }
-
+  
   validate(value) {
     try {
       const returnValue = this.#validateFunction(value);
+      if (isThenable(returnValue)) {
+        returnValue.catch(() => {});
+        throw new TypeError(
+          "Validator.validate() received a thenable return value. " +
+            "Use validateAsync() for async validators.",
+        );
+      }
       if (typeof returnValue !== "undefined") value = returnValue;
       return ValidationResult.ok(value);
     } catch (errors) {
       return this.#handleErrors(errors);
     }
   }
-
+  
   async validateAsync(value) {
+    const fn = this.#validateAsyncFunction ?? this.#validateFunction;
     try {
-      const returnValue = await this.#validateFunction(value);
+      const returnValue = await fn(value);
       if (typeof returnValue !== "undefined") value = returnValue;
       return ValidationResult.ok(value);
     } catch (errors) {
       return this.#handleErrors(errors);
     }
   }
-
+  
   #handleErrors(errors) {
-    errors = ensureArray(errors);
-    const allValidationErrors = errors.every(
+    const errorList = ensureArray(errors);
+    const allValidationErrors = errorList.every(
       (error) => error instanceof ValidationError,
     );
-
+    
     if (allValidationErrors) {
       if (this.#messageFunction) {
-        for (const error of errors) {
+        for (const error of errorList) {
           error.message = this.#messageFunction(error);
         }
       }
-      return ValidationResult.error(errors);
-    } else {
-      const nonValidationErrors = errors.filter(
-        (error) => !(error instanceof ValidationError),
-      );
-      throw nonValidationErrors;
+      return ValidationResult.error(errorList);
     }
+    
+    if (errorList.length === 1) throw errorList[0];
+    throw new AggregateError(errorList, "Validator received mixed errors");
   }
-
+  
   test(value) {
     return this.validate(value).valid;
   }
-
+  
   async testAsync(value) {
     return (await this.validateAsync(value)).valid;
   }
-
+  
   assert(value) {
     const result = this.validate(value);
     if (!result.valid) {
@@ -162,7 +180,7 @@ export class Validator {
     }
     return result;
   }
-
+  
   async assertAsync(value) {
     const result = await this.validateAsync(value);
     if (!result.valid) {
@@ -187,8 +205,8 @@ export function schema(...functionsOrValidators) {
       { index, argument: fn },
     );
   });
-
-  return new Validator((value) => {
+  
+  function sync(value) {
     const errors = [];
     for (const validator of validators) {
       const result = validator.validate(value);
@@ -200,61 +218,124 @@ export function schema(...functionsOrValidators) {
     }
     if (errors.length > 0) throw errors;
     return value;
-  });
+  }
+  
+  async function async(value) {
+    const errors = [];
+    for (const validator of validators) {
+      const result = await validator.validateAsync(value);
+      if (result.valid) {
+        value = result.value;
+      } else {
+        errors.push(...result.errors);
+      }
+    }
+    if (errors.length > 0) throw errors;
+    return value;
+  }
+  
+  return new Validator(sync, async);
 }
 
 export function key(name, ...functionsOrValidators) {
   const KeySchema = schema(...functionsOrValidators);
-
-  return new Validator((value) => {
-    const input = value[name];
-    const result = KeySchema.validate(input);
-
-    if (result.valid) {
-      return { ...value, [name]: result.value };
-    }
-    throw result.errors.map((error) => {
-      error.path = [name].concat(error.path ?? []);
-      return error;
-    });
-  });
+  
+  function sync(value) {
+    requireObjectLike(value, name);
+    const result = KeySchema.validate(value[name]);
+    return handleKeyResult(value, name, result);
+  }
+  
+  async function async(value) {
+    requireObjectLike(value, name);
+    const result = await KeySchema.validateAsync(value[name]);
+    return handleKeyResult(value, name, result);
+  }
+  
+  return new Validator(sync, async);
 }
 
 export function items(...functionsOrValidators) {
   const ItemSchema = schema(...functionsOrValidators);
-
-  return new Validator((value) => {
-    if (!Array.isArray(value)) {
-      throw new ValidationError({
-        message: "value must be an array",
-        details: { value, valueType: typeof value },
-      });
-    }
-
-    const items = value;
+  
+  function sync(value) {
+    assertArray(value);
     const errors = [];
-
-    for (let index = 0; index < items.length; index++) {
-      const result = ItemSchema.validate(items[index]);
+    for (const [indexKey, item] of Object.entries(value)) {
+      const index = Number(indexKey);
+      const result = ItemSchema.validate(item);
       if (result.valid) {
-        items[index] = result.value;
+        value[index] = result.value;
       } else {
-        for (const error of result.errors) {
-          error.path = [index].concat(error.path ?? []);
-          errors.push(error);
-        }
+        pushWithPath(errors, result.errors, index);
       }
     }
-
     if (errors.length > 0) throw errors;
-    return items;
+    return value;
+  }
+  
+  async function async(value) {
+    assertArray(value);
+    const errors = [];
+    for (const [indexKey, item] of Object.entries(value)) {
+      const index = Number(indexKey);
+      const result = await ItemSchema.validateAsync(item);
+      if (result.valid) {
+        value[index] = result.value;
+      } else {
+        pushWithPath(errors, result.errors, index);
+      }
+    }
+    if (errors.length > 0) throw errors;
+    return value;
+  }
+  
+  return new Validator(sync, async);
+}
+
+function handleKeyResult(value, name, result) {
+  if (result.valid) return { ...value, [name]: result.value };
+  throw result.errors.map((error) => {
+    error.path = [name].concat(error.path ?? []);
+    return error;
   });
+}
+
+function requireObjectLike(value, name) {
+  if (value === null || value === undefined || typeof value !== "object") {
+    const got = typeOf(value);
+    throw new WrongTypeValidationError({
+      message: `key("${String(name)}") expected an object, got ${got}`,
+      details: { value, valueType: got, keyName: name },
+    });
+  }
+}
+
+function assertArray(value) {
+  if (!Array.isArray(value)) {
+    throw new ValidationError({
+      message: "value must be an array",
+      details: { value, valueType: typeof value },
+    });
+  }
+}
+
+function pushWithPath(errors, itemErrors, index) {
+  for (const error of itemErrors) {
+    error.path = [index].concat(error.path ?? []);
+    errors.push(error);
+  }
+}
+
+function typeOf(value) {
+  if (value === null) return "null";
+  return typeof value;
 }
 
 export function hasKey(key) {
   const isStringOrSymbol =
     typeof key === "string" || typeof key === "symbol";
-
+    
   if (!isStringOrSymbol) {
     throw Object.assign(
       new TypeError(
@@ -263,13 +344,13 @@ export function hasKey(key) {
       { value: key },
     );
   }
-
+  
   return new Validator((value) => {
     const defined =
       value !== null &&
       value !== undefined &&
       value[key] !== undefined;
-
+      
     if (!defined) {
       throw new MissingKeyError({
         message: `Expected key "${String(key)}" is missing`,
@@ -283,37 +364,65 @@ export function hasKey(key) {
 
 export function required(...functionsOrValidators) {
   const Inner = schema(...functionsOrValidators);
-  return new Validator((value) => {
-    if (
-      value === null ||
-      value === undefined ||
-      Number.isNaN(value) ||
-      value?.valueOf?.() === "" ||
-      value?.length === 0 ||
-      value?.size === 0 ||
-      isEmpty(value)
-    ) {
-      throw new RequiredError({
-        message: "Value is required",
-        details: { value },
-      });
-    }
+  
+  function sync(value) {
+    if (isMissing(value)) throw missingError(value);
     const result = Inner.validate(value);
     if (result.valid) return result.value;
     throw result.errors;
-  });
+  }
+  
+  async function async(value) {
+    if (isMissing(value)) throw missingError(value);
+    const result = await Inner.validateAsync(value);
+    if (result.valid) return result.value;
+    throw result.errors;
+  }
+  
+  return new Validator(sync, async);
 }
 
 export function optional(...functionsOrValidators) {
   const Inner = schema(...functionsOrValidators);
-  const emptyValues = [undefined, null, ""];
-
-  return new Validator((value) => {
-    if (emptyValues.includes(value)) return;
+  
+  function sync(value) {
+    if (isOptionalEmpty(value)) return;
     const result = Inner.validate(value);
     if (result.valid) return result.value;
     throw result.errors;
+  }
+  
+  async function async(value) {
+    if (isOptionalEmpty(value)) return;
+    const result = await Inner.validateAsync(value);
+    if (result.valid) return result.value;
+    throw result.errors;
+  }
+  
+  return new Validator(sync, async);
+}
+
+function isMissing(value) {
+  return (
+    value === null ||
+    value === undefined ||
+    Number.isNaN(value) ||
+    value?.valueOf?.() === "" ||
+    value?.length === 0 ||
+    value?.size === 0 ||
+    isEmpty(value)
+  );
+}
+
+function missingError(value) {
+  return new RequiredError({
+    message: "Value is required",
+    details: { value },
   });
+}
+
+function isOptionalEmpty(value) {
+  return value === undefined || value === null || value === "";
 }
 
 
@@ -337,8 +446,13 @@ export function type(Type) {
 
 type.oneOf = function typeOneOf(...allowedTypes) {
   return new Validator((value) => {
-    if (!allowedTypes.some((T) => value instanceof T)) {
-      const typeNames = allowedTypes.map((T) => T.name ?? T);
+    const matches = allowedTypes.some(
+      (allowed) => value instanceof allowed,
+    );
+    if (!matches) {
+      const typeNames = allowedTypes.map(
+        (allowed) => allowed.name ?? allowed,
+      );
       throw new ValidationError({
         message: `Value must be one of: ${serialComma(typeNames, "or")}`,
         details: { value, allowedTypes },
@@ -349,28 +463,28 @@ type.oneOf = function typeOneOf(...allowedTypes) {
 
 type.to = function toType(Type) {
   const conversions = new Map();
-  conversions.set(Array, (v) => Array.from(v));
-  conversions.set(BigInt, (v) => BigInt(v));
-  conversions.set(Boolean, (v) => Boolean(v));
-  conversions.set(Date, (v) => new Date(v));
-  conversions.set(Function, (v) => Function(v));
-  conversions.set(Map, (v) => new Map(v));
-  conversions.set(Number, (v) => Number(v));
-  conversions.set(Object, (v) => Object(v));
-  conversions.set(Promise, (v) => Promise.resolve(v));
-  conversions.set(RegExp, (v) => new RegExp(v));
-  conversions.set(Set, (v) => new Set(v));
-  conversions.set(String, (v) => String(v));
-  conversions.set(Symbol, (v) => Symbol.for(v));
-  conversions.set(Uint8Array, (v) => new Uint8Array(v));
-
+  conversions.set(Array, (input) => Array.from(input));
+  conversions.set(BigInt, (input) => BigInt(input));
+  conversions.set(Boolean, (input) => Boolean(input));
+  conversions.set(Date, (input) => new Date(input));
+  conversions.set(Function, (input) => Function(input));
+  conversions.set(Map, (input) => new Map(input));
+  conversions.set(Number, (input) => Number(input));
+  conversions.set(Object, (input) => Object(input));
+  conversions.set(Promise, (input) => Promise.resolve(input));
+  conversions.set(RegExp, (input) => new RegExp(input));
+  conversions.set(Set, (input) => new Set(input));
+  conversions.set(String, (input) => String(input));
+  conversions.set(Symbol, (input) => Symbol.for(input));
+  conversions.set(Uint8Array, (input) => new Uint8Array(input));
+  
   const convert = conversions.get(Type) ?? Type;
-
+  
   if (typeof convert !== "function") {
     const typeName = Type?.name ?? Type;
     throw new TypeError(`type.to(): unsupported type: ${typeName}`);
   }
-
+  
   return new Validator((value) => convert(value));
 };
 
@@ -392,12 +506,14 @@ export function minLength(minLen) {
     if (typeof value?.length !== "number") {
       throw new MinLengthError({
         message: "Value must have a numeric length property",
+        minLength: minLen,
         details: { value, minLength: minLen },
       });
     }
     if (value.length < minLen) {
       throw new MinLengthError({
         message: `Length of value must be at least ${minLen}`,
+        minLength: minLen,
         details: { value, minLength: minLen },
       });
     }
@@ -411,6 +527,12 @@ export function string() {
 
 string.minLength = function stringMinLength(minLen) {
   return new Validator((value) => {
+    if (typeof value !== "string") {
+      throw new MinimumStringLengthError({
+        message: `Value must be a string to check minLength`,
+        details: { value, valueType: typeof value, minLength: minLen },
+      });
+    }
     if (value.length < minLen) {
       throw new MinimumStringLengthError({
         message: `String must be at least ${minLen} characters long`,
@@ -422,6 +544,12 @@ string.minLength = function stringMinLength(minLen) {
 
 string.maxLength = function stringMaxLength(maxLen) {
   return new Validator((value) => {
+    if (typeof value !== "string") {
+      throw new MaximumStringLengthError({
+        message: `Value must be a string to check maxLength`,
+        details: { value, valueType: typeof value, maxLength: maxLen },
+      });
+    }
     if (value.length > maxLen) {
       throw new MaximumStringLengthError({
         message: `String must be no longer than ${maxLen} characters`,
@@ -436,12 +564,12 @@ string.url = function stringURL() {
     try {
       const parsedUrl = new URL(prependHttp(value));
       const parsedDomain = parseDomain(parsedUrl.hostname);
-
+      
       const domainValid =
         Boolean(parsedDomain.domain) &&
         Boolean(parsedDomain.topLevelDomains?.length) &&
         parsedDomain.type === "LISTED";
-
+        
       if (!domainValid) {
         throw new InvalidURLError({
           message: "This doesn't look like a URL",
@@ -480,9 +608,9 @@ string.isoDate = function stringIsoDate() {
       });
     }
     const date = new Date(value);
-    const roundTrip = Number.isNaN(date.getTime())
-      ? null
-      : date.toISOString().slice(0, 10);
+    const roundTrip = Number.isNaN(date.getTime()) ?
+      null :
+      date.toISOString().slice(0, 10);
     if (roundTrip !== value) {
       throw new InvalidISODateError({
         message: "ISO date is invalid",
@@ -499,6 +627,12 @@ export function number() {
 
 number.min = function numberMin(min) {
   return new Validator((value) => {
+    if (typeof value !== "number" || Number.isNaN(value)) {
+      throw new MinimumNumberError({
+        message: `Value must be a number to check min`,
+        details: { value, valueType: typeof value, min },
+      });
+    }
     if (value < min) {
       throw new MinimumNumberError({
         message: `Value must be at least ${min}`,
@@ -510,6 +644,12 @@ number.min = function numberMin(min) {
 
 number.max = function numberMax(max) {
   return new Validator((value) => {
+    if (typeof value !== "number" || Number.isNaN(value)) {
+      throw new MaximumNumberError({
+        message: `Value must be a number to check max`,
+        details: { value, valueType: typeof value, max },
+      });
+    }
     if (value > max) {
       throw new MaximumNumberError({
         message: `Value must be no larger than ${max}`,
@@ -567,7 +707,7 @@ number.nonNegative = function numberNonNegative() {
 export function isEmpty(value) {
   const EMPTY = true;
   const NOT_EMPTY = false;
-
+  
   if (isPrimitive(value)) return NOT_EMPTY;
   if (typeof value.length === "number") {
     return value.length === 0 ? EMPTY : NOT_EMPTY;
@@ -575,27 +715,41 @@ export function isEmpty(value) {
   if (typeof value.size === "number") {
     return value.size === 0 ? EMPTY : NOT_EMPTY;
   }
-
+  
   try {
-    for (const _ of value) return NOT_EMPTY;
+    for (const item of value) {
+      void item;
+      return NOT_EMPTY;
+    }
     return EMPTY;
-  } catch (_) {
+  } catch {
     // not iterable
   }
-
+  
   try {
-    for (const _ of Object.entries(value)) return NOT_EMPTY;
+    for (const entry of Object.entries(value)) {
+      void entry;
+      return NOT_EMPTY;
+    }
     return EMPTY;
-  } catch (_) {
+  } catch {
     // not enumerable
   }
-
+  
   return NOT_EMPTY;
 }
 
 
 export const mapAdapter = (fn) => new Validator(fn);
 
+
+function isThenable(value) {
+  return (
+    value !== null &&
+    (typeof value === "object" || typeof value === "function") &&
+    typeof value.then === "function"
+  );
+}
 
 function ensureArray(value) {
   return Array.isArray(value) ? value : [value];
