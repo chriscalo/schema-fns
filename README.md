@@ -1,349 +1,276 @@
 # schema-fns
-Composable schema functions for input transformation and validation
 
-## Installation
+Composable schema functions for input transformation and validation.
 
-``` sh
+## Install
+
+```sh
 npm install schema-fns
 ```
 
+ESM only; Node 22+.
+
 ## Overview
 
-`schema-fns` lets you build composable schemas for input transformation and
-validation. The most important export is the `schema()` function that's used to
-define schemas. It's modeled after the Express middleware model of layers of
-handler functions and therefore accepts as parameters any number of functions or
-schema objects. Those functions have a signature of `(value, update, error)`,
-where:
-- `value` is the input value to be transformed and validated, 
-- `update` is a function used to return a modified input value, and
-- `error` is a function used to create validation errors.
+Build schemas by composing `Validator` instances. Every primitive (`type`,
+`required`, `string.url`, `number.min`, etc.) returns a `Validator`. `schema()`,
+`key()`, and `items()` compose validators into larger ones.
 
-## Input transformation
+```js
+import {
+  schema, key, required, type, string, number,
+} from "schema-fns";
 
-Let's see it in action. The first thing you can do with `schema-fns` is
-transform input. The following example uses two transformation functions, one
-to convert the value to a string, and another to append a `"1"`. Given the input
-`42`, the value becomes `"421"`:
-
-``` js
-const { schema } = require("schema-fns");
-
-const MySchema = schema(
-  function (value, update, error) {
-    update(String(value));
-  },
-  function (value, update, error) {
-    update(value + "1");
-  },
+const UserSchema = schema(
+  type(Object),
+  key("name", required(), string.minLength(1), string.maxLength(100)),
+  key("age", required(), number.integer(), number.nonNegative()),
 );
 
-const { value } = MySchema.validate(42);
-console.log(value); //=> "421"
+const result = UserSchema.validate({ name: "Alice", age: 30 });
+result.valid; // true
+result.value; // { name: "Alice", age: 30 }
 ```
 
-For simple value tranformations, there's an adapter function `mapAdapter()` that
-converts mapping functions to a form that works for `schema-fns`. The same
-example above can be written as:
+## `Validator`
 
-``` js
-const { schema, mapAdapter } = require("schema-fns");
+Every primitive returns a `Validator`. A schema is just a `Validator` built from
+other validators.
 
-const MySchema = schema(
-  mapAdapter(value => String(value)),
-  mapAdapter(value => value + "1"),
+### `.validate(value)` / `.validateAsync(value)`
+
+Returns a `ValidationResult`. On success, `{ valid: true, value }`. On failure,
+`{ valid: false, errors }`. `errors` is an array of `ValidationError` (or
+subclass) instances, each with a `path` describing where in the input the
+failure happened.
+
+### `.test(value)` / `.testAsync(value)`
+
+Returns a boolean.
+
+### `.assert(value)` / `.assertAsync(value)`
+
+Returns the successful `ValidationResult`, or throws a `ValidationError` whose
+`.errors` is the full error list.
+
+### `.message(stringOrFunction)`
+
+Replaces the default message on any error the validator produces. Chainable;
+returns `this`.
+
+```js
+const Age = number.integer().message("Age must be a whole number.");
+```
+
+With a function, you get access to the full error for interpolation:
+
+```js
+const Min = minLength(3).message(
+  (error) => `must be at least ${error.details.minLength} characters`,
 );
-
-const { value } = MySchema.validate(42);
-console.log(value); //=> "421"
 ```
 
-## Input validation
+## Composing schemas
 
-The next interesting thing you can do is validate input values. And the simplest
-way is to use built-in validation functions. Calling `.validate(input)` returns
-an object with:
-- `valid`: `true` if there were no validation errors, `false` otherwise
-- `value`: the transformed value
-- `errors`: an array of any validation errors
+### `schema(...validators)`
 
-### `.validate(value)`
+Runs each validator in order. Accumulates errors; returns the transformed
+`value` if all pass.
 
-Here's an example that validates that a value is an object.
+### `key(name, ...validators)`
 
-``` js
-const { schema, is } = require("schema-fns");
+Focuses on a property of an object. Errors are emitted with `path = [name,
+...inner.path]`.
 
-const MySchema = schema(
-  is(Object),
-);
+### `items(...validators)`
 
-const { valid, value, errors } = MySchema.validate(42);
-console.log(valid); //=> false
-console.log(value); //=> 42 (because the value was never updated)
+Validates every item in an array. Errors are emitted with `path = [index,
+...inner.path]`. Fails if the value isn't an array.
+
+### `hasKey(name)`
+
+Requires a key to be present (with a non-`undefined` value). Supports string or
+symbol keys. Throws `MissingKeyError`.
+
+## Presence
+
+### `required(...validators)`
+
+Fails (`RequiredError`) if the value is missing. Missing means `null`,
+`undefined`, `NaN`, empty string, length-0 array/string, size-0 Map/Set, or any
+value `isEmpty()` treats as empty. If present, runs the inner validators.
+
+### `optional(...validators)`
+
+Passes without running inner validators if the value is `undefined`, `null`, or
+`""`. Otherwise runs them.
+
+### `isEmpty(value)`
+
+Primitives are never empty. Arrays/strings check `.length`. Maps/Sets check
+`.size`. Iterables check for any item. Plain objects check for any enumerable
+property.
+
+## Types
+
+### `type(Type)`
+
+Passes if the value matches `Type`. Accepts:
+
+- strict equality (for `null`/`undefined`)
+- `value instanceof Type` (for classes)
+- `typeof value === Type` (for strings like `"string"`)
+- `typeof value === Type.name.toLowerCase()` (for primitive constructors like
+  `String`, `Number`)
+
+Throws `WrongTypeValidationError`.
+
+### `type.oneOf(...Types)`
+
+Passes if `value instanceof` any of the given types.
+
+### `type.to(Type)`
+
+Coerces the value to a target type. Built-in conversions for `Array`, `BigInt`,
+`Boolean`, `Date`, `Function`, `Map`, `Number`, `Object`, `Promise`, `RegExp`,
+`Set`, `String`, `Symbol`, `Uint8Array`. Unknown types are called as
+`Type(value)`.
+
+```js
+const parseAge = type.to(Number);
+parseAge.validate("42").value; // 42
 ```
 
-The `errors` array will look like the following:
+### `oneOf(...values)`
 
-``` js
-[{
-  code: "is.type", // the validation error code
-  path: [], // path taken to get from the input to the value where the error happened
-  message: "wrong type: expected object", // the default
-  value: 42, // the value validated
-  expectedType: "object", // each validator may include additional context
-}]
+Passes if `value` is included in the given values.
+
+## Strings
+
+```js
+string();                 // type(String)
+string.minLength(n);      // throws MinimumStringLengthError
+string.maxLength(n);      // throws MaximumStringLengthError
+string.url();             // throws InvalidURLError
+string.email();           // throws InvalidEmailError
+string.isoDate();         // throws InvalidISODateError (YYYY-MM-DD)
 ```
 
-### `.test(value)`
+`string.url()` accepts bare domains (`"example.com"`), rejects IPs and unlisted
+domains. `string.isoDate()` rejects format mismatches and invalid calendar dates
+(e.g. `2024-02-30`).
 
-In addition to `.validate()`, there is a `.test()` function that just returns
-the value of `valid`:
+## Numbers
 
-``` js
-const { schema, is } = require("schema-fns");
-
-const MySchema = schema(
-  is(Object),
-);
-
-console.log(MySchema.test(42)); //=> false
-console.log(MySchema.test({})); //=> true
-console.log(MySchema.test("hi")); //=> false
+```js
+number();                 // type(Number)
+number.min(n);            // throws MinimumNumberError
+number.max(n);            // throws MaximumNumberError
+number.finite();          // throws FiniteNumberError
+number.integer();         // throws NonIntegerError
+number.positive();        // > 0, throws PositiveNumberError
+number.nonNegative();     // >= 0, throws NonNegativeNumberError
 ```
 
-### `.assert(value)`
+`number.*` is strict: non-numbers (including numeric strings like `"5"`) and
+`NaN` are rejected. Coerce at the boundary with `type.to(Number)` when the input
+is a string:
 
-Finally, if instead of receiving the transformed value and errors, `.assert()`
-will throw an error if validation fails:
-
-``` js
-const { schema, is } = require("schema-fns");
-
-const MySchema = schema(
-  is(Object),
-);
-
-MySchema.assert(42); // throws
-MySchema.assert("hi"); // throws
-MySchema.assert({}); // doesn't throw
+```js
+// For form inputs that arrive as strings:
+const Age = schema(type.to(Number), number.integer(), number.nonNegative());
+Age.validate("5").value; // 5
 ```
 
-### `hasKeys(...keyNames)`
+This keeps validators honest about what they accept and leaves coercion visible
+in the schema itself.
 
-Let's look at more validation functions. `hasKeys()` checks that keys are
-present on some object:
+## Length
 
-``` js
-const { schema, hasKeys } = require("schema-fns");
+### `minLength(n)`
 
-const MySchema = schema(
-  hasKeys("foo", "bar"),
-);
+Generic length check; works on any value with a numeric `.length`. Throws
+`MinLengthError`. Distinct from `string.minLength`, which also asserts
+string-specific behavior.
 
-const { valid, value, errors } = MySchema.validate({});
-console.log(valid); //=> false
-console.log(value); //=> {}
-```
+## Custom validators
 
-The `errors` array will look like:
+Subclass `Validator` or pass a function to its constructor. Throw a
+`ValidationError` (or subclass) to fail validation. Any other thrown value
+bubbles out of `.validate()`.
 
-``` js
-[{
-  code: "key.missing",
-  path: [],
-  message: `expected key "foo" missing`,
-  key: "foo",
-  value: {},
-}, {
-  code: "key.missing",
-  path: [],
-  message: `expected key "bar" missing`,
-  key: "bar",
-  value: {},
-}]
-```
+```js
+import { Validator, ValidationError } from "schema-fns";
 
-### `key(name, ...fns)`
-
-The `key()` function is used to focus in on one key of an object and apply
-schema functions to it. The first argument is the key name and the remaining
-arguments are schema functions.
-
-``` js
-const { schema, key, mapAdapter } = require("schema-fns");
-
-const MySchema = schema(
-  key(
-    "name",
-    mapAdapter(value => `Hello, ${value}!`),
-    mapAdapter(value => String(value).toUpperCase()),
-  ),
-);
-
-const { valid, value, errors } = MySchema.validate({ name: "World" });
-
-console.log(valid); //=> true
-console.log(value); //=> { "name": "HELLO, WORLD!" }
-console.log(errors); //=> []
-```
-
-It can also be used for validation:
-
-``` js
-const { schema, is, key } = require("schema-fns");
-
-const MySchema = schema(
-  key("foo", is(Object)),
-);
-
-const { valid, value, errors } = MySchema.validate({ foo: 42 });
-console.log(valid); //=> false
-console.log(value); //=> { foo: 42 }
-```
-
-The `errors` array will look like:
-
-``` js
-[{
-  code: "is.type",
-  path: ["foo"],
-  message: "wrong type: expected object",
-  expectedType: "object",
-  value: 42,
-}]
-```
-
-Of course, `key()` is recursive:
-
-``` js
-const { schema, is, key } = require("schema-fns");
-
-const MySchema = schema(
-  key(
-    "name",
-    is(Object),
-    key("first", is(String)),
-  ),
-);
-
-const { valid, value, errors } = MySchema.validate({
-  name: {
-    first: 42,
-  },
+const evenNumber = new Validator((value) => {
+  if (value % 2 !== 0) {
+    throw new ValidationError({
+      message: "Must be even",
+      details: { value },
+    });
+  }
 });
-
-console.log(valid); //=> false
-console.log(value); //=> { name: { first: 42 } }
 ```
 
-The `errors` array will look like:
+## Transforms
 
-``` js
-[{
-  code: "is.type",
-  path: ["name", "first"],
-  message: "wrong type: expected string",
-  expectedType: "string",
-  value: 42,
-}]
+A `Validator`'s function can return a new value. Whatever it returns (if not
+`undefined`) replaces the input; returning `undefined` leaves the input
+unchanged.
+
+```js
+const upper = new Validator((value) => value.toUpperCase());
+upper.validate("hi").value; // "HI"
 ```
 
-### `items(...fns)`
+## Errors
 
-The `items()` function is used to transform and validate all items in an array.
-Here's a transformation example that doubles numbers in an array and then
-repeats the digits:
+All errors subclass `ValidationError`:
 
-``` js
-const { schema, items, mapAdapter } = require("schema-fns");
-
-const MySchema = schema(
-  items(
-    mapAdapter(value => value * 2),
-    mapAdapter(value => String(value) + String(value)),
-    mapAdapter(Number)
-  ),
-);
-
-const { valid, value, errors } = MySchema.validate([ 1, 2, 3 ]);
-
-console.log(valid); //=> true
-console.log(value); //=> [ 22, 44, 66 ]);
+```
+ValidationError
+├── RequiredError
+├── MinLengthError
+├── MinimumStringLengthError
+├── MaximumStringLengthError
+├── MissingKeyError
+├── WrongTypeValidationError
+├── InvalidURLError
+├── InvalidEmailError
+├── InvalidISODateError
+├── MinimumNumberError
+├── MaximumNumberError
+├── FiniteNumberError
+├── NonIntegerError
+├── PositiveNumberError
+└── NonNegativeNumberError
 ```
 
-It can be used for validation as well:
+Every error has a `path` describing its location in the input, and may carry a
+`details` object with context (`value`, `minLength`, etc.).
 
-``` js
-const { schema, is, items } = require("schema-fns");
+## Migrating from 0.1.x
 
-const MySchema = schema(
-  items(is(Number)),
-);
+`1.0.0` is a breaking rewrite on top of a `Validator` class. No backwards-compat
+shims.
 
-const { valid, value, errors } = MySchema.validate([ 1, 2, "3", 4, "5" ]);
+| 0.1.x                            | 1.0.0                                             |
+| -------------------------------- | ------------------------------------------------- |
+| `isType(T)` / `is(T)`            | `type(T)`                                         |
+| `as(T)` / `to(T)`                | `type.to(T)`                                      |
+| `isOneOf(...v)`                  | `oneOf(...v)`                                     |
+| `isUrl()`                        | `string.url()`                                    |
+| `length(min, max)`               | `string.minLength(min)` + `string.maxLength(max)` |
+| `hasKeys(...keys)`               | `hasKey(key)` (one per call)                      |
+| `(value, update, error)` handler | `new Validator(fn)` / plain `fn` in `schema()`    |
+| `mapAdapter(fn)`                 | `new Validator(fn)`                               |
+| error objects with `code`        | `ValidationError` subclass instances              |
 
-console.log(valid); //=> false
-console.log(value); //=> [ 1, 2, "3", 4, "5" ]
-```
+The handler shape changed. Instead of calling `update()` and `error()`, return
+the transformed value (or `undefined` to leave it alone) and throw
+`ValidationError` instances to fail.
 
-The `errors` array will look like:
+## Credits
 
-``` js
-[{
-  code: "is.type",
-  path: [2],
-  message: "wrong type: expected number",
-  expectedType: "number",
-  value: "3",
-}, {
-  code: "is.type",
-  path: [4],
-  message: "wrong type: expected number",
-  expectedType: "number",
-  value: "5",
-}]
-```
-
-
-## Custom input validation
-
-Writing custom validators is as simple as calling the `error()` function,
-passing a string error code and a context object with additional information
-useful for debugging or messaging to an end user.
-
-
-``` js
-const { schema, is, items } = require("schema-fns");
-
-const MySchema = schema(
-  notFoo(),
-);
-
-// fails validation if the value equals "foo", "FOO", etc
-function notFoo() {
-  return function (value, update, error) {
-    if (String(value).toLowerCase() === "foo") {
-      // first argument is a unique error code
-      // second argument is a context object
-      error("not.foo", {
-        message: `not foo expected, got ${value}`,
-        value,
-      });
-    }
-  };
-}
-
-console.log(MySchema.test("foo")); //=> false
-console.log(MySchema.test("fOO")); //=> false
-console.log(MySchema.test("FOo")); //=> false
-console.log(MySchema.test(42)); //=> true
-console.log(MySchema.test({})); //=> true
-```
-
-
-## Credit
-
-Inspired by [Joi](https://joi.dev/api/) and [superstruct](https://docs.superstructjs.org/).
-
-
+Inspired by [Joi](https://joi.dev/api/) and
+[superstruct](https://docs.superstructjs.org/).

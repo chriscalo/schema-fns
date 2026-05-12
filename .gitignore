@@ -104,3 +104,9 @@ dist
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
+
+# Private/local-only notes (may reference private repos)
+*.local.md
+
+# Git worktrees
+.worktrees/
