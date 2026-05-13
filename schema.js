@@ -4,7 +4,7 @@ import { parseDomain } from "parse-domain";
 
 export class ValidationError extends Error {
   path = [];
-  
+
   constructor(messageOrOptions, extrasArg = undefined) {
     if (typeof messageOrOptions === "string") {
       const message = messageOrOptions;
@@ -15,6 +15,13 @@ export class ValidationError extends Error {
       super(message);
       Object.assign(this, extras);
     }
+  }
+}
+
+export class ValidationAggregateError extends AggregateError {
+  constructor(errors, message = "Validation failed") {
+    super(errors, message);
+    this.name = "ValidationAggregateError";
   }
 }
 
@@ -173,21 +180,15 @@ export class Validator {
   assert(value) {
     const result = this.validate(value);
     if (!result.valid) {
-      throw new ValidationError({
-        message: "Validation failed",
-        errors: result.errors,
-      });
+      throw new ValidationAggregateError(result.errors);
     }
     return result;
   }
-  
+
   async assertAsync(value) {
     const result = await this.validateAsync(value);
     if (!result.valid) {
-      throw new ValidationError({
-        message: "Validation failed",
-        errors: result.errors,
-      });
+      throw new ValidationAggregateError(result.errors);
     }
     return result;
   }
