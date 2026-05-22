@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  ValidationError, ValidationResult, Validator,
+  ValidationError, ValidationAggregateError, ValidationResult, Validator,
   schema, key, items, hasKey, MissingKeyError,
   required, RequiredError, optional,
   minLength, MinLengthError,
@@ -130,18 +130,29 @@ await test("Validator", async (ctx) => {
     assert.doesNotThrow(() => createValidator().assert(5));
   });
   
-  await ctx.test(".assert() with invalid input throws", () => {
-    assert.throws(() => createValidator().assert(-2), ValidationError);
+  await ctx.test(".assert() with invalid input throws ValidationAggregateError", () => {
+    assert.throws(() => createValidator().assert(-2), ValidationAggregateError);
   });
-  
+
+  await ctx.test(".assert() thrown error carries individual errors in .errors", () => {
+    try {
+      createValidator().assert(-2);
+      assert.fail("expected throw");
+    } catch (err) {
+      assert.ok(err instanceof AggregateError);
+      assert.equal(err.errors.length, 1);
+      assert.ok(err.errors[0] instanceof ValidationError);
+    }
+  });
+
   await ctx.test(".assertAsync() with valid input doesn't throw", async () => {
     await assert.doesNotReject(() => createAsyncValidator().assertAsync(5));
   });
-  
-  await ctx.test(".assertAsync() with invalid input throws", async () => {
+
+  await ctx.test(".assertAsync() with invalid input throws ValidationAggregateError", async () => {
     await assert.rejects(
       () => createAsyncValidator().assertAsync(-2),
-      ValidationError,
+      ValidationAggregateError,
     );
   });
   
